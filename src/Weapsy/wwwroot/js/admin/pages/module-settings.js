@@ -1,6 +1,6 @@
 ﻿var inheritPermissions = $("#InheritPermissions");
 var formGroupRoleGrid = $("#form-group-role-grid");
-//document.getElementById("InheritPermissions").checked = false;
+/* Role-grid stays hidden at page-load*/
 $(formGroupRoleGrid).hide();
 
 $(inheritPermissions).bind("click", function () {
