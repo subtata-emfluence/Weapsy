@@ -2,6 +2,9 @@
 
 <script>
     $(document).ready(function () {
+        //We need to remove any instance of tinymce loaded previously before we call them again.
+        tinymce.remove();
+
         tinymce.init({
             selector: 'textarea',
             height: 350,
