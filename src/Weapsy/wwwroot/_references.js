@@ -22,6 +22,7 @@
 /// <reference path="js/admin/pages/create.js" />
 /// <reference path="js/admin/pages/edit.js" />
 /// <reference path="js/admin/pages/index.js" />
+/// <reference path="js/admin/pages/module-settings.js" />
 /// <reference path="js/admin/pages/shared.js" />
 /// <reference path="js/admin/roles/create.js" />
 /// <reference path="js/admin/roles/edit.js" />

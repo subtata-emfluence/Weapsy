@@ -108,6 +108,9 @@ weapsy.controlPanel = (function ($) {
         });
 
         $('.module-remove').click(function () {
+            if (!confirm("Press OK to confirm operation...")) {
+                return;
+            }
             var pageId = $("#page").attr("data-page-id");
             var moduleId = $(this).closest(".module-data").attr("data-module-id");
             var command = {
@@ -121,7 +124,10 @@ weapsy.controlPanel = (function ($) {
                 dataType: 'json',
                 contentType: 'application/json'
             }).done(function () {
-                $("#" + moduleId).remove();
+                $("#" + moduleId).html("<p style='text-align:center;line-height:2em;color: #888888;font-weight: bold;'>Module removed</p>");
+                window.setTimeout(function () {
+                    $("#" + moduleId).remove();
+                }, 2000);
             });
         });
     }

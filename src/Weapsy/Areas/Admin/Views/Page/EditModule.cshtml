@@ -1,6 +1,6 @@
 ﻿@model Weapsy.Reporting.Pages.PageModuleAdminModel
 
-@{ 
+@{
     Layout = "";
 }
 
@@ -13,12 +13,12 @@
         <div class="col-md-12">
             <label class="checkbox-inline">
                 <input asp-for="InheritPermissions" type="checkbox" />
-                Inherit Permissions From Page  
-            </label>       
+                Inherit Permissions From Page
+            </label>
         </div>
     </div>
 
-    <div class="form-group has-feedback">
+    <div class="form-group has-feedback" id="form-group-role-grid">
         <div class="col-md-12">
             <table class="table table-bordered" style="width:auto;">
                 <tr>
@@ -53,4 +53,5 @@
             </span>
         </div>
     </div>
+    <script type="text/javascript" src="~/js/admin/pages/module-settings.js"></script>
 </form>
