@@ -1,43 +1,52 @@
-﻿using System.Threading.Tasks;
-using Weapsy.Mvc.Controllers;
+﻿using Weapsy.Mvc.Controllers;
 using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Weapsy.Reporting.Sites;
 using Weapsy.Reporting.Pages;
 using Weapsy.Mvc.Context;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Http;
-using Weapsy.Services.Identity;
+using Weapsy.Domain.Pages;
+using Weapsy.Framework.Queries;
+using Weapsy.Reporting.Pages.Queries;
+using Weapsy.Services.Security;
 
 namespace Weapsy.Controllers
 {
     public class HomeController : BaseController
     {
-        private readonly ISiteFacade _siteFacade;
-        private readonly IPageFacade _pageFacade;
-        private readonly IUserService _userService;
+        private readonly IQueryDispatcher _queryDispatcher;
+        private readonly ISecurityService _securityService;
 
-        public HomeController(ISiteFacade siteFacade, 
-            IPageFacade pageFacade,
-            IUserService userService,
+        public HomeController(IQueryDispatcher queryDispatcher,
+            ISecurityService securityService,
             IContextService contextService)
             : base(contextService)
         {
-            _siteFacade = siteFacade;
-            _pageFacade = pageFacade;
-            _userService = userService;
+            _queryDispatcher = queryDispatcher;
+            _securityService = securityService;            
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(Guid pageId, Guid languageId)
         {
-            if (PageInfo == null || !_userService.IsUserAuthorized(User, PageInfo.Page.ViewRoles))
+            if (pageId == Guid.Empty)
                 return NotFound();
 
-            ViewBag.Title = PageInfo.Page.Title;
-            ViewBag.MetaDescription = PageInfo.Page.MetaDescription;
-            ViewBag.MetaKeywords = PageInfo.Page.MetaKeywords;
+            var pageInfo = await _queryDispatcher.DispatchAsync<GetPageInfo, PageInfo>(new GetPageInfo
+            {
+                SiteId = SiteId,
+                PageId = pageId,
+                LanguageId = languageId
+            });
 
-            return View(PageInfo);
+            if (pageInfo == null || !_securityService.IsUserAuthorized(User, pageInfo.Page.Roles[PermissionType.View]))
+                return NotFound();
+
+            ViewBag.Title = pageInfo.Page.Title;
+            ViewBag.MetaDescription = pageInfo.Page.MetaDescription;
+            ViewBag.MetaKeywords = pageInfo.Page.MetaKeywords;
+
+            return View(pageInfo);
         }
 
         public IActionResult SetLanguage(string culture, string returnUrl)
@@ -48,7 +57,7 @@ namespace Weapsy.Controllers
                 new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1) }
             );
 
-            return LocalRedirect(returnUrl);
+            return LocalRedirect(!string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : "/");
         }
 
         [Route("error/500")]

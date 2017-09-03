@@ -1,98 +1,98 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Weapsy.Reporting.Sites;
 using Weapsy.Reporting.Themes;
-using Microsoft.AspNetCore.Localization;
 using Weapsy.Reporting.Languages;
-using Weapsy.Reporting.Pages;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Localization;
+using Weapsy.Framework.Queries;
+using Weapsy.Reporting.Languages.Queries;
+using Weapsy.Reporting.Sites.Queries;
+using Weapsy.Reporting.Themes.Queries;
+using Weapsy.Reporting.Users;
 
 namespace Weapsy.Mvc.Context
 {
     public class ContextService : IContextService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly ISiteFacade _siteFacade;
-        private readonly IPageFacade _pageFacade;
-        private readonly ILanguageFacade _languageFacade;
-        private readonly IThemeFacade _themeFacade;
+        private readonly IQueryDispatcher _queryDispatcher;
 
         public ContextService(IHttpContextAccessor httpContextAccessor, 
-            ISiteFacade siteFacade,
-            IPageFacade pageFacade,
-            ILanguageFacade languageFacade,
-            IThemeFacade themeFacade)
+            IQueryDispatcher queryDispatcher)
         {
             _httpContextAccessor = httpContextAccessor;
-            _siteFacade = siteFacade;
-            _pageFacade = pageFacade;
-            _languageFacade = languageFacade;
-            _themeFacade = themeFacade;
+            _queryDispatcher = queryDispatcher;           
         }
 
-        private const string ContextInfoKey = "Weapsy|ContextInfo";
+        private const string SiteInfoKey = "Weapsy|SiteInfo";
+        private const string LanguageInfoKey = "Weapsy|LanguageInfo";
+        private const string ThemeInfoKey = "Weapsy|ThemeInfo";
+        private const string UserInfoKey = "Weapsy|UserInfo";
 
-        public ContextInfo GetCurrentContextInfo()
+        public SiteInfo GetCurrentSiteInfo()
         {
-            if (_httpContextAccessor.HttpContext.Items[ContextInfoKey] == null)
-                _httpContextAccessor.HttpContext.Items.Add(ContextInfoKey, GetContextInfo());
-
-            return (ContextInfo)_httpContextAccessor.HttpContext.Items[ContextInfoKey];
+            return GetInfo(SiteInfoKey, () => _queryDispatcher.DispatchAsync<GetSiteInfo, SiteInfo>(new GetSiteInfo { Name = "Default" }).Result);
         }
 
-        private ContextInfo GetContextInfo()
+        public void SetLanguageInfo(LanguageInfo languageInfo)
         {
-            var site = GetSiteInfo();
-            var language = GetLanguageInfo();
-            var page = GetPageInfo(site.Id, language.Id);
+            SetInfo(LanguageInfoKey, languageInfo);
+        }
 
-            return new ContextInfo
+        public LanguageInfo GetCurrentLanguageInfo()
+        {
+            return GetInfo(LanguageInfoKey, () =>
             {
-                Site = site,
-                Language = language,
-                Page = page
-            };
+                var languages = _queryDispatcher.DispatchAsync<GetAllActive, IEnumerable<LanguageInfo>>(new GetAllActive { SiteId = GetCurrentSiteInfo().Id }).Result;
+                var userCookie = _httpContextAccessor.HttpContext.Request.Cookies[CookieRequestCultureProvider.DefaultCookieName];
+
+                if (!string.IsNullOrEmpty(userCookie))
+                {
+                    var userCulture = userCookie.Split('|')[0].Split('=')[1];
+
+                    var userLanguage = languages.FirstOrDefault(x => x.CultureName == userCulture);
+
+                    if (userLanguage != null)
+                        return userLanguage;
+                }
+
+                return languages.Any() ? languages.FirstOrDefault() : new LanguageInfo();
+            });
         }
 
-        private SiteInfo GetSiteInfo()
+        public ThemeInfo GetCurrentThemeInfo()
         {
-            return _siteFacade.GetSiteInfo("Default").Result;
-        }
-
-        private PageInfo GetPageInfo(Guid siteId, Guid languageId)
-        {
-            Guid pageId = GetIdFromRouteData(ContextKeys.PageKey);
-
-            if (pageId == Guid.Empty)
+            return GetInfo(ThemeInfoKey, () =>
             {
-                // pageId = Site.HomePageId
-                var pages = _pageFacade.GetAllForAdminAsync(siteId).Result;
-                var homePage = pages.FirstOrDefault(x => x.Name == "Home");
-                if (homePage != null)
-                    pageId = homePage.Id;
-            }
+                var themes = _queryDispatcher.DispatchAsync<GetActiveThemes, IEnumerable<ThemeInfo>>(new GetActiveThemes()).Result;
 
-            return _pageFacade.GetPageInfo(siteId, pageId, languageId);
+                var theme = themes.FirstOrDefault(x => x.Id == GetCurrentSiteInfo().ThemeId);
+
+                if (theme == null)
+                    return themes.FirstOrDefault();
+
+                return theme;
+            });
         }
 
-        private LanguageInfo GetLanguageInfo()
+        public UserInfo GetCurrentUserInfo()
         {
-            var requestedLanguageId = GetIdFromRouteData(ContextKeys.LanguageKey);
-
-            //var userCulture = _httpContextAccessor.HttpContext.Request.Cookies[CookieRequestCultureProvider.DefaultCookieName];
-
-            return new LanguageInfo
-            {
-                Id = requestedLanguageId
-            };
+            throw new NotImplementedException();
         }
 
-        private Guid GetIdFromRouteData(string key)
+        private void SetInfo(string key, object data)
         {
-            return _httpContextAccessor.HttpContext.GetRouteData().DataTokens[key] != null
-                ? (Guid)_httpContextAccessor.HttpContext.GetRouteData().DataTokens[key]
-                : Guid.Empty;
+            _httpContextAccessor.HttpContext.Items.Add(key, data);
+        }
+
+        private T GetInfo<T>(string key, Func<T> acquire)
+        {
+            if (_httpContextAccessor.HttpContext.Items[key] == null)
+                _httpContextAccessor.HttpContext.Items.Add(key, acquire());
+
+            return (T)_httpContextAccessor.HttpContext.Items[key];
         }
     }
 }

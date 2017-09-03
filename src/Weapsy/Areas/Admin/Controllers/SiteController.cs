@@ -1,22 +1,33 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Threading.Tasks;
+using AutoMapper;
+using Weapsy.Domain.Sites;
+using Weapsy.Domain.Sites.Commands;
+using Weapsy.Framework.Commands;
+using Weapsy.Framework.Queries;
 using Weapsy.Mvc.Context;
 using Weapsy.Mvc.Controllers;
 using Weapsy.Reporting.Sites;
+using Weapsy.Reporting.Sites.Queries;
 
 namespace Weapsy.Areas.Admin.Controllers
 {
     [Area("Admin")]
     public class SiteController : BaseAdminController
     {
-        private readonly ISiteFacade _siteFacade;
+        private readonly ICommandSender _commandSender;
+        private readonly IQueryDispatcher _queryDispatcher;
+        private readonly IMapper _mapper;
 
-        public SiteController(ISiteFacade siteFacade,
+        public SiteController(ICommandSender commandSender,
+            IQueryDispatcher queryDispatcher,
+            IMapper mapper,
             IContextService contextService)
             : base(contextService)
         {
-            _siteFacade = siteFacade;
+            _commandSender = commandSender;
+            _mapper = mapper;
+            _queryDispatcher = queryDispatcher;
         }
 
         public IActionResult Index()
@@ -26,7 +37,7 @@ namespace Weapsy.Areas.Admin.Controllers
 
         public async Task<IActionResult> Settings()
         {
-            var model = await _siteFacade.GetAdminModel(SiteId);
+            var model = await _queryDispatcher.DispatchAsync<GetAdminModel, SiteAdminModel>(new GetAdminModel { Id = SiteId });
 
             if (model == null)
                 return NotFound();
@@ -34,14 +45,12 @@ namespace Weapsy.Areas.Admin.Controllers
             return View("Edit", model);
         }
 
-        public async Task<IActionResult> Edit(Guid id)
+        public IActionResult Update(SiteAdminModel model)
         {
-            var model = await _siteFacade.GetAdminModel(id);
-
-            if (model == null)
-                return NotFound();
-
-            return View(model);
+            var command = _mapper.Map<UpdateSiteDetails>(model);
+            command.SiteId = SiteId;
+            _commandSender.Send<UpdateSiteDetails, Site>(command);
+            return new NoContentResult();
         }
     }
 }
